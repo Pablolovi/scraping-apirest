@@ -1,103 +1,110 @@
 // servidor HTTP y rutas CRUD
-
-const express = require('express');
+const express=require('express');
+const app=express();
+const PORT =3000;
+const scrapingRouting=require('./scraping.js');
 const fs = require('fs');
-const scrapeNoticias = require('./scraping');
+const bodyParser = require('body-parser');
 
-const app = express();
-const PORT = 3000;
-
-// Middleware para manejar datos JSON
+// Middleware para parsear JSON
+app.use(bodyParser.json());
 app.use(express.json());
-
-
-// middleware para manejar datos de la formularios URL-encoded
 app.use(express.urlencoded({ extended: true }));
+
+app.use('/',scrapingRouting);
+
+
 
 let noticias = [];
 
-
-// Leer datos desde archivo JSON
+  // Leer datos desde el archivo JSON
 function leerDatos() {
     try {
-        const data = fs.readFileSync('noticias.json', 'utf-8');
-        noticias = JSON.parse(data);
-    } catch (error) {
-        console.error('Error al leer el archivo noticia.json:', error.message);
+      const data = fs.readFileSync('noticias.json', 'utf-8');
+      noticias = JSON.parse(data);
+      } catch (error) {
+      console.error('Error al leer el archivo noticias.json:', error.message);
     }
-}
-
-
-// Guardar datos en el formato JSON
-function guardarDatos() {
+  }
+  
+  // Guardar datos en el archivo JSON
+  function guardarDatos() {
     fs.writeFileSync('noticias.json', JSON.stringify(noticias, null, 2));
-}
+  }
+
+  leerDatos();
 
 
-// Ruta para obteber el scraping
-app.get('/scraping', async (req, res) => {
-    await scrapeNoticias();
-    res.send('Scraping comletado y datos guardados en noticias.json');
-});
-
-
-// Ruta para ontener todas las noticias
-app.get('/noticias', (req, res) => {
-    leerDatos();
+   //CRUD
+  
+  // Endpoint --  Obtiene la lista de todos los usuarios.
+  app.get('/noticias', (req, res) => {
     res.json(noticias);
-});
+  });
 
-
-// Ruta para obtener una noticia por índice
-app.get('/noticias/:index', (req, res) => {
-    leerDatos();
-    const index = req.params.index;
-    if (noticias[index]) {
-        res.json(noticias[index]);
+  // Obtener todas las noticias
+app.get('/noticias', (req, res) => {
+    res.json(noticias);
+  });
+  
+  // Obtener una noticia por índice
+  app.get('/noticias/:indice', (req, res) => {
+    const indice = parseInt(req.params.indice, 10);
+    if (indice >= 0 && indice < noticias.length) {
+      res.json(noticias[indice]);
     } else {
-        res.status(404).send('Noticia no encontrada');
+      res.status(404).json({ error: 'Noticia no encontrada' });
     }
-});
-
-
-// Ruta para crear una nueva noticia
-app.post('/noticias', (req, res) => {
-    leerDatos();
-    const nuevaNoticia = req.body;
+  });
+  
+  // Crear una nueva noticia
+  app.post('/noticias', (req, res) => {
+    const { titulo, imagen, descripcion, enlace } = req.body;
+    console.log(titulo)
+    console.log(enlace)
+    if (!titulo || !enlace) {
+      return res.status(400).json({ error: 'Título y enlace son requeridos' });
+    }
+  
+    const nuevaNoticia = { titulo, imagen: imagen || 'Sin imagen', descripcion: descripcion || 'Sin descripción', enlace };
     noticias.push(nuevaNoticia);
     guardarDatos();
-    res.status(201).send('Noticia creada');
-});
-
-
-// Ruta para actualizar una noticia existente
-app.put('/noticias/:index', (req, res) => {
-    leerDatos();
-    const index = req.params.index;
-    if (noticias[index]) {
-        noticias[index] = req.body;
-        guardarDatos();
-        res.send('Noticia actualizada');
+    res.status(201).json(nuevaNoticia);
+  });
+  
+  // Actualizar una noticia existente
+  app.put('/noticias/:indice', (req, res) => {
+    const indice = parseInt(req.params.indice, 10);
+    if (indice >= 0 && indice < noticias.length) {
+      const { titulo, imagen, descripcion, enlace } = req.body;
+  
+      if (titulo) noticias[indice].titulo = titulo;
+      if (imagen) noticias[indice].imagen = imagen;
+      if (descripcion) noticias[indice].descripcion = descripcion;
+      if (enlace) noticias[indice].enlace = enlace;
+  
+      guardarDatos();
+      res.json(noticias[indice]);
     } else {
-        res.status(404).send('Noticia no encontrada');
+      res.status(404).json({ error: 'Noticia no encontrada' });
     }
-});
-
-
-// Ruta para eliminar una noticia
-app.delete('/noticias/:index', (req, res) => {
-    leerDatos();
-    const index = req.params.index;
-    if (noticias[index]) {
-        noticias.splice(index, 1);
-        guardarDatos();
-        res.send('Noticia eliminada');
+  });
+  
+  // Eliminar una noticia
+  app.delete('/noticias/:indice', (req, res) => {
+    const indice = parseInt(req.params.indice, 10);
+    if (indice >= 0 && indice < noticias.length) {
+      const noticiaEliminada = noticias.splice(indice, 1);
+      guardarDatos();
+      res.json({ mensaje: 'Noticia eliminada', noticia: noticiaEliminada[0] });
     } else {
-        res.status(404).send('Noticia no encontrada');
+      res.status(404).json({ error: 'Noticia no encontrada' });
     }
-});
+  });
+  
+ 
+app.listen(PORT, function(err){
+    if (err) console.log("Error in server setup")
+    console.log(`Server listening on http://localhost:${PORT}`);
 
-
-app.listen(PORT, () => {
-    console.log(`Servidor corriendo en el puerto ${PORT}`);
-});
+})
