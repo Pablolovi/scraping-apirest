@@ -13,8 +13,6 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use('/',scrapingRouting);
 
-
-
 let noticias = [];
 
   // Leer datos desde el archivo JSON
